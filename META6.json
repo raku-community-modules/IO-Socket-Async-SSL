@@ -1,5 +1,5 @@
 {
-  "auth": "zef:jnthn",
+  "auth": "zef:raku-community-modules",
   "authors": [
     "Jonathan Worthington"
   ],
@@ -29,5 +29,5 @@
   ],
   "test-depends": [
   ],
-  "version": "0.8.0"
+  "version": "0.8.1"
 }
