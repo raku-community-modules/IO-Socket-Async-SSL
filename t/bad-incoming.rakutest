@@ -1,6 +1,8 @@
 use Test;
 use IO::Socket::Async::SSL;
 
+plan 3;
+
 my constant TEST_PORT = 54333;
 
 my $server = IO::Socket::Async::SSL.listen(
@@ -28,4 +30,4 @@ $server-tap.close;
 is $conns, 0, 'No connection emitted';
 is $quits, 0, 'Server tap did not QUIT on bad incoming connection';
 
-done-testing;
+# vim: expandtab shiftwidth=4

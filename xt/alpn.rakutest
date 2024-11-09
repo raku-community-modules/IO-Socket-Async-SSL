@@ -14,3 +14,5 @@ lives-ok { $conn = await IO::Socket::Async::SSL.connect('google.co.uk', 443,
            ok $conn.alpn-result eq 'h2', 'ALPN for the client works' },
     'ALPN can be used';
 $conn.?close;
+
+# vim: expandtab shiftwidth=4

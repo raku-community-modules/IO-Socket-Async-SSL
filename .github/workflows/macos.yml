@@ -1,4 +1,4 @@
-name: CI
+name: macos
 
 on:
   push:
@@ -13,11 +13,8 @@ jobs:
     strategy:
       matrix:
         os:
-          - ubuntu-latest
           - macOS-latest
-          # - windows-latest
         raku-version:
-          - "2021.07"
           - "latest"
     runs-on: ${{ matrix.os }}
     steps:
@@ -25,10 +22,9 @@ jobs:
       - uses: Raku/setup-raku@v1
         with:
           raku-version: ${{ matrix.raku-version }}
-      - name: Install Libraries (MacOS)
-        if: matrix.os == 'macOS-latest'
+      - name: Install OpenSSL
         run: brew install openssl
       - name: Setup dependencies
         run: raku -v && zef install --verbose --deps-only .
       - name: Test code
-        run: zef test .
+        run: raku run-tests -i

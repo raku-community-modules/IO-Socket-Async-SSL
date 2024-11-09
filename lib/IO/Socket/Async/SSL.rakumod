@@ -1,3 +1,274 @@
+=begin pod
+
+=head1 NAME
+
+IO::Socket::Async::SSL - Provides an API like IO::Socket::Async, but with TLS support
+
+=head1 SYNOPSIS
+
+Client:
+
+=begin code :lang<raku>
+
+use IO::Socket::Async::SSL;
+
+my $conn = await IO::Socket::Async::SSL.connect('raku.org', 443);
+$conn.print: "GET / HTTP/1.0\r\nHost: raku.org\r\n\r\n";
+react {
+    whenever $conn {
+        .print
+    }
+}
+$conn.close;
+
+=end code
+
+Server (assumes certificate and key files C<server-crt.pem> and
+C<server-key.pem>):
+
+=begin code :lang<raku>
+
+use IO::Socket::Async::SSL;
+
+react {
+    my %ssl-config =
+      certificate-file => 'server-crt.pem',
+      private-key-file => 'server-key.pem';
+
+    whenever IO::Socket::Async::SSL.listen(
+      'localhost', 4433, |%ssl-config
+    ) -> $conn {
+        my $req = '';
+        whenever $conn {
+            $req ~= $_;
+            if $req.contains("\r\n\r\n") {
+                say $req.lines[0];
+                await $conn.print(
+                  "HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n"
+                  ~ "<strong>Hello from a Raku HTTP server</strong>\n");
+                $conn.close;
+            }
+        }
+    }
+}
+
+=end code
+
+=head1 DESCRIPTION
+
+This module provides a secure sockets implementation with an API very
+much like that of the Raku built-in C<IO::Socket::Async> class. For the
+client case, provided the standard certificate and host verification
+are sufficient, it is drop-in replacement. The server case only needs
+two extra arguments to C<listen>, specifying the server key and
+certificate.
+
+As with C<IO::Socket::Async>, it is safe to have concurrent connections
+and to share them across threads.
+
+=head2 Client
+
+The C<connect> method on C<IO::Socket::Async::SSL> is used to establish
+a SSL connection to a server. It requires two positional arguments,
+which specify the C<host> and C<port> to connect to. It returns a
+C<Promise>, which will be kept with an C<IO::Socket::Async::SSL>
+instance when the connection is established and the SSL handshake
+completed.
+
+=begin code :lang<raku>
+
+my $conn = await IO::Socket::Async::SSL.connect($host, $port);
+
+=end code
+
+By default, the SSL certificate will be verified, using the default
+set of accepted Certificate Authorities. The C<Promise> returned by
+C<connect> will be broken if verification fails.
+
+Sometimes it is convenient to create a Certificate Authority (CA)
+and use it to sign certificates for internal use, for example to
+secure communications between a set of services on an internal
+network. In this case, the C<ca-file> named argument can be passed
+to specify the certificate authority certificate file:
+
+=begin code :lang<raku>
+
+my $ca-file = '/config/ca-crt.pem';
+my $conn = await IO::Socket::Async::SSL.connect(
+  'user-service', 443, :$ca-file
+);
+
+=end code
+
+Alternatively, a C<ca-path> argument can be specified, indicating
+a directory where one or more certificates may be found.
+
+It is possible to disable certificate verification by passing the
+C<insecure> named argument a true value. As the name suggests,
+B<this is not a secure configuration>, since there is no way for
+the client to be sure that it is communicating with the intended
+server. Therefore, it is vulnerable to man-in-the-middle attacks.
+
+For control over the ciphers that may be used, pass the C<ciphers>
+argument to `connect`. It should be a string in
+L<OpenSSL cipher list format|https://www.openssl.org/docs/man1.0.2/apps/ciphers.html>.
+
+If wishing to view encrypted traffic with a tool such as Wireshark
+for debugging purposes, pass a filename to the C<ssl-key-log-file>
+name argument.  Session keys will be written to this log file, and
+Wireshark can then be configured to introspect the encrypted traffic
+(Preferences -> Protocols -> TLS -> (Pre-)-Master-Secret log filename).
+Note that this key exposure compromises the security of the session!
+
+=head2 Server
+
+The C<listen> method returns a C<Supply> that, when tapped, will
+start an SSL server. The server can be shut down by closing the tap.
+
+Whenever a connection is made to the server, the C<Supply> will emit
+an C<IO::Socket::Async::SSL> instance. The C<listen> method requires
+two positional arguments, specifying the C<host> and C<port> to
+listen on. Two named arguments are also required, providing the
+C<certificate-file> and C<private-key-file>.
+
+=begin code :lang<raku>
+
+my %ssl-config =
+  certificate-file => 'server-crt.pem',
+  private-key-file => 'server-key.pem';
+my $connections = IO::Socket::Async::SSL.listen(
+  'localhost', 4433, |%ssl-config
+);
+
+react {
+    my $listener = do whenever $connections -> $conn {
+        say "Got a connection!";
+        $conn.close;
+    }
+
+    whenever signal(SIGINT) {
+        say "Shutting down...";
+        $listener.close;
+        exit;
+    }
+}
+
+=end code
+
+For control over the ciphers that may be used, pass the C<ciphers>
+named argument to C<connect>.  It should be a string in
+L<OpenSSL cipher list format|https://www.openssl.org/docs/man1.0.2/apps/ciphers.html>.
+
+The following boolean options are also accepted:
+
+=item C<prefer-server-ciphers> - indicates that the order of the
+ciphers list as configured on the server should be preferred over
+that of the one presented by the client
+
+=item C<no-compression> - disables compression
+
+=item C<no-session-resumption-on-renegotiation>
+
+=head2 Common client and server functionality
+
+Both the C<connect> and C<listen> methods take the following optional
+named arguments:
+
+=item C<enc>, which specifies the encoding to use when the socket is
+used in character mode. Defaults to C<utf-8>.
+
+=item C<scheduler>, which specifies the scheduler to use for
+processing events from the underlying C<IO::Socket::Async> instance.
+The default is C<$*SCHEDULER>.  There is rarely a need to change this.
+
+The C<Supply>, C<print>, C<write>, and C<close> methods have the same
+semantics as in L<IO::Socket::Async|https://docs.raku.org/type/IO/Socket/Async>.
+
+=head2 Upgrading connections
+
+Some protocols use
+L<opportunistic TLS|https://en.wikipedia.org/wiki/Opportunistic_TLS>,
+where the decision to use transport layer security is first negotiated
+using a non-encrypted protocol - provided negotiation is successful -
+a TLS handshake is then performed.
+
+This functionality is provided by the C<upgrade-server> and
+C<upgrade-client> methods. Note that the socket to upgrade must be an
+instance of C<IO::Socket::Async>. Further, it is important to B<stop
+reading from the socket before initiating the upgrade>, which will
+typically entail working with the C<Tap> directly, something not
+normally needed in C<react>/C<whenever> blocks.
+
+Here is an example of using C<upgrade-server>:
+
+=begin code :lang<raku>
+
+my $server = IO::Socket::Async.listen('localhost', TEST_PORT);
+react whenever $server -> $plain-conn {
+    my $plain-tap = do whenever $plain-conn.Supply -> $start {
+        if $start eq "Psst, let's talk securely!\n" {
+            # Must stop reading...
+            $plain-tap.close;
+            # ...so the module can take over the socket.
+            my $enc-conn-handshake = IO::Socket::Async::SSL.upgrade-server(
+              $plain-conn,
+              private-key-file => 't/certs-and-keys/server.key',
+              certificate-file => 't/certs-and-keys/server-bundle.crt'
+            );
+            whenever $enc-conn-handshake -> $enc-conn {
+                uc-service($enc-conn);
+            }
+            $plain-conn.print("OK, let's talk securely!\n");
+        }
+        else {
+            $plain-conn.print("OK, let's talk insecurely\n");
+            uc-service($plain-conn);
+        }
+    }
+
+    sub uc-service($conn) {
+        whenever $conn -> $crypt-text {
+            whenever $conn.print($crypt-text.uc) {
+                $conn.close;
+            }
+        }
+    }
+}
+
+=end code
+
+Here's an example using C<upgrade-client>; again, take note
+of the careful handling of the C<Tap>:
+
+=begin code :lang<raku>
+
+my $plain-conn = await IO::Socket::Async.connect('localhost', TEST_PORT);
+await $plain-conn.print("Psst, let's talk securely!\n");
+
+react {
+    my $plain-tap = do whenever $plain-conn -> $msg {
+        $plain-tap.close;
+        my $enc-conn-handshake = IO::Socket::Async::SSL.upgrade-client(
+          $plain-conn,
+          host => 'localhost',
+          ca-file => 't/certs-and-keys/ca.crt'
+        );
+        whenever $enc-conn-handshake -> $enc-conn {
+            await $enc-conn.print("hello!\n");
+            whenever $enc-conn.head -> $got {
+                print $got; # HELLO!
+                done;
+            }
+        }
+    }
+}
+
+=end code
+
+=head2 Method reference
+
+=end pod
+
 use OpenSSL;
 use OpenSSL::Bio;
 use OpenSSL::Ctx;
@@ -1035,3 +1306,28 @@ class IO::Socket::Async::SSL {
         }
     }
 }
+
+=begin pod
+
+=head2 Bugs, feature requests, and contributions
+
+Please use GitHub Issues to file bug reports and feature requests.
+If you wish to contribute to this module, please open a GitHub Pull
+Request.
+
+Please send an email to the Raku Security Team (security@raku.org)
+to report security vulnerabilities.
+
+=head1 AUTHOR
+
+Jonathan Worthington
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright 2017 - 2024 Jonathan Worthington
+
+Copyright 2024 Raku Community
+
+This library is free software; you can redistribute it and/or modify it under the Artistic License 2.0.
+
+=end pod

@@ -1,26 +1,33 @@
 {
-  "name": "IO::Socket::Async::SSL",
-  "description": "Provides an API like IO::Socket::Async, but with TLS support.",
-  "version": "0.8.0",
-  "perl": "6.*",
-  "authors": [
-    "Jonathan Worthington <jnthn@jnthn.net>"
-  ],
   "auth": "zef:jnthn",
+  "authors": [
+    "Jonathan Worthington"
+  ],
+  "build-depends": [
+  ],
   "depends": [
     "OpenSSL"
   ],
+  "description": "Provides an API like IO::Socket::Async, but with TLS support",
+  "license": "Artistic-2.0",
+  "name": "IO::Socket::Async::SSL",
+  "perl": "6.*",
   "provides": {
-    "IO::Socket::Async::SSL": "lib/IO/Socket/Async/SSL.pm6"
+    "IO::Socket::Async::SSL": "lib/IO/Socket/Async/SSL.rakumod"
   },
+  "resources": [
+  ],
+  "source-url": "https://github.com/raku-community-modules/IO-Socket-Async-SSL.git",
   "support": {
     "source": "https://github.com/jnthn/p6-io-socket-async-ssl.git"
   },
-  "license": "Artistic-2.0",
   "tags": [
     "SSL",
     "TLS",
     "Asynchronous",
     "Socket"
-  ]
+  ],
+  "test-depends": [
+  ],
+  "version": "0.8.0"
 }

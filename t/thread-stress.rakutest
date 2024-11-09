@@ -1,6 +1,8 @@
 use Test;
 use IO::Socket::Async::SSL;
 
+plan 1;
+
 my constant TEST_PORT = 54332;
 
 my $ready = Promise.new;
@@ -45,4 +47,4 @@ await do for ^4 {
 
 pass 'Thread stress-test lived';
 
-done-testing;
+# vim: expandtab shiftwidth=4

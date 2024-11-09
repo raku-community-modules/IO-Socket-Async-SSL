@@ -1,6 +1,8 @@
 use Test;
 use IO::Socket::Async::SSL;
 
+plan 24;
+
 my constant TEST_PORT = 54340;
 
 my $server = IO::Socket::Async::SSL.listen(
@@ -186,4 +188,4 @@ my $server4 = IO::Socket::Async::SSL.listen(
 
 throws-like { $server4.tap }, X::IO::Socket::Async::SSL, 'Certfile not there';
 
-done-testing;
+# vim: expandtab shiftwidth=4
