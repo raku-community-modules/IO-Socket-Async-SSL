@@ -93,7 +93,7 @@ if IO::Socket::Async::SSL.supports-alpn {
     $conn.?close;
     $echo-server-tap.close;
 } else {
-    skip "no alpn support in this ssl version";
+    skip "no alpn support in this ssl version", 2;
 }
 
 if IO::Socket::Async::SSL.supports-alpn {
@@ -161,7 +161,8 @@ if IO::Socket::Async::SSL.supports-alpn {
     is $p2.result, 'h2', 'Negotiation is correct (2)';
     $echo-server-tap.close;
 } else {
-    skip "no alpn support in this ssl version", 5;
+    # Note that the isnt is triggered once from each thread.
+    skip "no alpn support in this ssl version", 6;
 }
 
 # Check PKCS12 bundle
