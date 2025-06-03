@@ -18,9 +18,6 @@
   "resources": [
   ],
   "source-url": "https://github.com/raku-community-modules/IO-Socket-Async-SSL.git",
-  "support": {
-    "source": "https://github.com/jnthn/p6-io-socket-async-ssl.git"
-  },
   "tags": [
     "SSL",
     "TLS",
@@ -29,5 +26,5 @@
   ],
   "test-depends": [
   ],
-  "version": "0.8.1"
+  "version": "0.8.2"
 }
